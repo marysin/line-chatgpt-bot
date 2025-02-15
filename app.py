@@ -22,7 +22,17 @@ line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 # 設定 OpenAI API Key（新版 API 方式）
-client = openai.OpenAI(api_key=OPENAI_API_KEY)
+import openai
+
+# 設定 OpenAI API Key
+openai.api_key = OPENAI_API_KEY
+
+def get_chatgpt_response(user_message):
+    response = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": user_message}]
+    )
+    return response["choices"][0]["message"]["content"]
 
 @app.route("/", methods=["GET"])
 def home():
