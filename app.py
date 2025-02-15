@@ -1,65 +1,3 @@
-import os
-import re
-import json
-import requests
-from flask import Flask, request
-from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
-from googletrans import Translator  # 引入 Google 翻譯 API
-from dotenv import load_dotenv
-
-# 加載環境變數
-load_dotenv()
-
-# 讀取環境變數
-LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
-
-# 初始化 Flask
-app = Flask(__name__)
-
-# 初始化 LINE Bot
-line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
-handler = WebhookHandler(LINE_CHANNEL_SECRET)
-
-# 初始化 Google 翻譯
-translator = Translator()
-
-# 讀取寶可夢名稱對應表
-with open("pokemon_data.json", "r", encoding="utf-8") as f:
-    pokemon_data = json.load(f)
-
-@app.route("/", methods=["GET"])
-def home():
-    return "LINE Bot 正在運行..."
-
-@app.route("/callback", methods=["POST"])
-def callback():
-    signature = request.headers["X-Line-Signature"]
-    body = request.get_data(as_text=True)
-
-    try:
-        handler.handle(body, signature)
-    except InvalidSignatureError:
-        return "Invalid signature", 400
-
-    return "OK"
-
-# 處理文字訊息
-@handler.add(MessageEvent, message=TextMessage)
-def handle_message(event):
-    user_message = event.message.text
-
-    # 呼叫資料整理函數
-    formatted_message = format_pokemon_data(user_message)
-
-    # 回應整理後的內容
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text=formatted_message)
-    )
-
 def format_pokemon_data(text):
     # 提取國旗
     flag_match = re.search(r":flag_(\w+):", text)
@@ -97,6 +35,17 @@ def format_pokemon_data(text):
 
     print(f"原始地點: {location_name}")  # 🔥 Debug: 檢查是否成功提取地點
 
+    # 🔹 提取座標 `(39.915432, -75.137098)`
+    coords_match = re.search(r"\((-?\d+\.\d+),\s*(-?\d+\.\d+)\)", text)
+    if coords_match:
+        lat = round(float(coords_match.group(1)), 4)  # 經度縮短到 4 位數
+        lng = round(float(coords_match.group(2)), 4)  # 緯度縮短到 4 位數
+        coords = f"{lat}, {lng}"
+    else:
+        coords = "未知座標"
+
+    print(f"提取座標: {coords}")  # 🔥 Debug: 確保座標正確
+
     # 🔹 使用 Google 翻譯 API 自動翻譯城市名稱
     translated_city = translate_city_google(location_name)
     
@@ -107,14 +56,7 @@ def format_pokemon_data(text):
 {flag} ✨{name_cn} {name_en} {gender} {iv} {size_info}
 L {level} / CP {cp} {dsp}
 🔧工具人⚙️{translated_city}
+📍 {coords}
     """.strip()
 
     return formatted_text
-
-def translate_city_google(city_en):
-    """ 使用 Google 翻譯將城市名稱轉換成中文 """
-    translated = translator.translate(city_en, src="en", dest="zh-tw")
-    return translated.text
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
