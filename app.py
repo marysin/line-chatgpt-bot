@@ -118,20 +118,24 @@ def format_pokemon_data(text):
 {flag} ✨{name_cn} {name_en} {gender} {iv} {size_info}
 L {level} / CP {cp} {dsp}
 🔧工具人⚙️{translated_city}
-📍 {coords}
+{coords}
     """.strip()
 
     return formatted_text
 
 
 def translate_city_google(city_en):
-    """ 使用 Google 翻譯將城市名稱轉換成中文，確保 API 穩定 """
+    """ 使用 Google 翻譯將城市名稱轉換成中文 """
     try:
+        if city_en == "未知地點":
+            return "未知地點"
         translated = translator.translate(city_en, src="en", dest="zh-tw")
+        print(f"🌍 翻譯結果: {translated.text}")  # 🔥 Debug: 檢查翻譯結果
         return translated.text
     except Exception as e:
-        print(f"Google 翻譯錯誤: {e}")  # 🔥 Debug: 顯示錯誤訊息
-        return city_en  # 若翻譯失敗，保留原始英文
+        print(f"❌ Google 翻譯錯誤: {e}")  # 🔥 Debug: 顯示錯誤訊息
+        return city_en  # 若翻譯失敗，回傳原始英文
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
