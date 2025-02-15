@@ -45,8 +45,14 @@ def callback():
 def handle_message(event):
     user_message = event.message.text
 
-    # 呼叫 OpenAI API
-    response = openai.ChatCompletion.create(
+# 呼叫 OpenAI API
+import openai
+
+# 設定 OpenAI API Key
+client = openai.OpenAI(api_key=OPENAI_API_KEY)
+
+def get_chatgpt_response(user_message):
+    response = client.chat.completions.create(
         model="gpt-4",
         messages=[{"role": "user", "content": user_message}]
     )
