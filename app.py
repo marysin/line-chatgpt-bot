@@ -68,8 +68,6 @@ def format_pokemon_data(text):
     # 提取寶可夢名稱（英文 & 轉換成中文）
     name_match = re.search(r"\*\*\*(.*?)\*\*\*", text)
     name_en = name_match.group(1) if name_match else "未知寶可夢"
-
-    # 🔹 使用 `pokemon_data.json` 來轉換寶可夢名稱
     name_cn = pokemon_data.get(name_en, name_en)  # 找不到則保留原名
 
     # 提取性別
@@ -89,18 +87,24 @@ def format_pokemon_data(text):
     dsp_match = re.search(r"DSP in (\d+)m", text)
     dsp = f"DSP:{dsp_match.group(1)}m" if dsp_match else "無 DSP 時間"
 
-    # 嘗試提取地點名稱
-    location_match = re.search(r"-\s\*?([^*]+)\*?\s-", text)
+    # 提取體型與身高資訊（WXXL, HXS）
+    size_match = re.findall(r"\b(WXXL|WXXS|WXL|WXS|HXXL|HXXS|HXL|HXS)\b", text)
+    size_info = " ".join(size_match) if size_match else ""
+
+    # 提取地點（修正不匹配的格式）
+    location_match = re.search(r"-\s([\w\s,]+)-", text)  # 匹配 `- 城市, 國家 -`
     location_name = location_match.group(1).strip() if location_match else "未知地點"
 
     print(f"原始地點: {location_name}")  # 🔥 Debug: 檢查是否成功提取地點
 
     # 🔹 使用 Google 翻譯 API 自動翻譯城市名稱
     translated_city = translate_city_google(location_name)
+    
+    print(f"翻譯前: {location_name}，翻譯後: {translated_city}")  # 🔥 Debug: 檢查翻譯結果
 
     # 整理輸出格式
     formatted_text = f"""
-{flag} ✨{name_cn} {name_en} {gender} {iv}/WXL
+{flag} ✨{name_cn} {name_en} {gender} {iv} {size_info}
 L {level} / CP {cp} {dsp}
 🔧工具人⚙️{translated_city}
     """.strip()
