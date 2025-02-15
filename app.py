@@ -46,11 +46,12 @@ def handle_message(event):
     user_message = event.message.text
 
     # 呼叫 ChatGPT API
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": user_message}]
-    )
+    client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
+    response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": user_message}]
+    )
     reply_text = response["choices"][0]["message"]["content"]
 
     # 回應用戶
