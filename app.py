@@ -21,7 +21,7 @@ app = Flask(__name__)
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# 設定 OpenAI API Key
+# 設定 OpenAI API Key（回到舊版方式）
 openai.api_key = OPENAI_API_KEY
 
 @app.route("/", methods=["GET"])
@@ -45,14 +45,8 @@ def callback():
 def handle_message(event):
     user_message = event.message.text
 
-# 呼叫 OpenAI API
-import openai
-
-# 設定 OpenAI API Key
-client = openai.OpenAI(api_key=OPENAI_API_KEY)
-
-def get_chatgpt_response(user_message):
-    response = client.chat.completions.create(
+    # 使用舊版 OpenAI API 語法
+    response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[{"role": "user", "content": user_message}]
     )
