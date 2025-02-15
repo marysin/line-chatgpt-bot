@@ -89,9 +89,11 @@ def format_pokemon_data(text):
     dsp_match = re.search(r"DSP in (\d+)m", text)
     dsp = f"DSP:{dsp_match.group(1)}m" if dsp_match else "無 DSP 時間"
 
-    # 提取城市名稱
-    location_match = re.search(r"- \*(.*?)\* -", text)
-    location_name = location_match.group(1) if location_match else "未知地點"
+    # 嘗試提取地點名稱
+    location_match = re.search(r"-\s\*?([^*]+)\*?\s-", text)
+    location_name = location_match.group(1).strip() if location_match else "未知地點"
+
+    print(f"原始地點: {location_name}")  # 🔥 Debug: 檢查是否成功提取地點
 
     # 🔹 使用 Google 翻譯 API 自動翻譯城市名稱
     translated_city = translate_city_google(location_name)
