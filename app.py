@@ -125,13 +125,23 @@ L {level} / CP {cp} {dsp}
 
 
 def translate_city_google(city_en):
-    """ 使用 Google 翻譯將城市名稱轉換成中文 """
+    """ 使用 Google 翻譯將城市名稱轉換成中文，並修正 'Shire Of' 顯示問題 """
     try:
         if city_en == "未知地點":
             return "未知地點"
+
+        # 特殊處理 "Shire Of"，避免錯誤翻譯
+        city_en = city_en.replace("Shire Of", "").strip()
+
         translated = translator.translate(city_en, src="en", dest="zh-tw")
-        print(f"🌍 翻譯結果: {translated.text}")  # 🔥 Debug: 檢查翻譯結果
-        return translated.text
+        translated_text = translated.text
+
+        # 進一步優化翻譯結果
+        translated_text = translated_text.replace("，", ", ")  # 確保逗號格式
+        translated_text = translated_text.replace("的郡", "郡")  # 修正不自然的翻譯
+
+        print(f"🌍 翻譯前: {city_en}，翻譯後: {translated_text}")  # 🔥 Debug: 檢查翻譯結果
+        return translated_text
     except Exception as e:
         print(f"❌ Google 翻譯錯誤: {e}")  # 🔥 Debug: 顯示錯誤訊息
         return city_en  # 若翻譯失敗，回傳原始英文
