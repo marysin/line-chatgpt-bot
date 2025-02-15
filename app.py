@@ -1,9 +1,12 @@
 import os
 import re
+import json
+import requests
 from flask import Flask, request
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from googletrans import Translator  # 引入 Google 翻譯 API
 from dotenv import load_dotenv
 
 # 加載環境變數
@@ -19,6 +22,9 @@ app = Flask(__name__)
 # 初始化 LINE Bot
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
+
+# 初始化 Google 翻譯
+translator = Translator()
 
 @app.route("/", methods=["GET"])
 def home():
@@ -55,14 +61,9 @@ def format_pokemon_data(text):
     flag_match = re.search(r":flag_(\w+):", text)
     flag = f"🇺🇸" if flag_match else ""
 
-    # 提取寶可夢名稱（英文 & 轉換成中文）
+    # 提取寶可夢名稱
     name_match = re.search(r"\*\*\*(.*?)\*\*\*", text)
     name_en = name_match.group(1) if name_match else "未知寶可夢"
-    name_map = {
-        "Nidoran-f": "尼多蘭",
-        # 其他寶可夢名稱可以加到這裡
-    }
-    name_cn = name_map.get(name_en, name_en)  # 沒有對應的就保留原名
 
     # 提取性別
     gender = "♀" if "♀" in text else "♂"
@@ -81,19 +82,26 @@ def format_pokemon_data(text):
     dsp_match = re.search(r"DSP in (\d+)m", text)
     dsp = f"DSP:{dsp_match.group(1)}m" if dsp_match else "無 DSP 時間"
 
-    # 提取地點（目前示例是美國費城）
-    location = "🔧工具人⚙️美國費城"
-    coordinates = "39.9154,-75.1370"  # 這裡可以改成根據城市變化
+    # 提取城市名稱
+    location_match = re.search(r"- \*(.*?)\* -", text)
+    location_name = location_match.group(1) if location_match else "未知地點"
+
+    # 🔹 使用 Google 翻譯 API 自動翻譯城市名稱
+    translated_city = translate_city_google(location_name)
 
     # 整理輸出格式
     formatted_text = f"""
-{flag} ✨{name_cn} {name_en} {gender} {iv}/WXL
+{flag} ✨{name_en} {gender} {iv}/WXL
 L {level} / CP {cp} {dsp}
-{location}
-{coordinates}
+🔧工具人⚙️{translated_city}
     """.strip()
 
     return formatted_text
+
+def translate_city_google(city_en):
+    """ 使用 Google 翻譯將城市名稱轉換成中文 """
+    translated = translator.translate(city_en, src="en", dest="zh-tw")
+    return translated.text
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
