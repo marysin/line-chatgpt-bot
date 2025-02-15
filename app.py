@@ -26,6 +26,10 @@ handler = WebhookHandler(LINE_CHANNEL_SECRET)
 # 初始化 Google 翻譯
 translator = Translator()
 
+# 讀取寶可夢名稱對應表
+with open("pokemon_data.json", "r", encoding="utf-8") as f:
+    pokemon_data = json.load(f)
+
 @app.route("/", methods=["GET"])
 def home():
     return "LINE Bot 正在運行..."
@@ -61,9 +65,12 @@ def format_pokemon_data(text):
     flag_match = re.search(r":flag_(\w+):", text)
     flag = f"🇺🇸" if flag_match else ""
 
-    # 提取寶可夢名稱
+    # 提取寶可夢名稱（英文 & 轉換成中文）
     name_match = re.search(r"\*\*\*(.*?)\*\*\*", text)
     name_en = name_match.group(1) if name_match else "未知寶可夢"
+
+    # 🔹 使用 `pokemon_data.json` 來轉換寶可夢名稱
+    name_cn = pokemon_data.get(name_en, name_en)  # 找不到則保留原名
 
     # 提取性別
     gender = "♀" if "♀" in text else "♂"
@@ -91,7 +98,7 @@ def format_pokemon_data(text):
 
     # 整理輸出格式
     formatted_text = f"""
-{flag} ✨{name_en} {gender} {iv}/WXL
+{flag} ✨{name_cn} {name_en} {gender} {iv}/WXL
 L {level} / CP {cp} {dsp}
 🔧工具人⚙️{translated_city}
     """.strip()
