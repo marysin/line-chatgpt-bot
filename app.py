@@ -91,14 +91,14 @@ def format_pokemon_data(text):
     size_match = re.findall(r"\b(WXXL|WXXS|WXL|WXS|HXXL|HXXS|HXL|HXS)\b", text)
     size_info = " ".join(size_match) if size_match else ""
 
-    # 提取地點名稱（修正匹配範圍，確保能正確解析）
+    # 提取地點名稱
     location_match = re.search(r"-\s\*?([^*\n]+)\*?\s*-", text)
     location_name = location_match.group(1).strip() if location_match else "未知地點"
 
     print(f"原始地點: {location_name}")  # 🔥 Debug: 檢查是否成功提取地點
 
-    # 提取座標 `(39.915432, -75.137098)`
-    coords_match = re.search(r"\((-?\d+\.\d+),\s*(-?\d+\.\d+)\)", text)
+    # 提取座標（允許括號內或不帶括號）
+    coords_match = re.search(r"\(?(-?\d+\.\d+),\s*(-?\d+\.\d+)\)?", text)
     if coords_match:
         lat = round(float(coords_match.group(1)), 4)  # 經度縮短到 4 位數
         lng = round(float(coords_match.group(2)), 4)  # 緯度縮短到 4 位數
@@ -106,7 +106,7 @@ def format_pokemon_data(text):
     else:
         coords = "未知座標"
 
-    print(f"提取座標: {coords}")  # 🔥 Debug: 確保座標正確
+    print(f"提取的座標: {coords}")  # 🔥 Debug: 確保座標正確
 
     # 🔹 使用 Google 翻譯 API 自動翻譯城市名稱
     translated_city = translate_city_google(location_name) if location_name != "未知地點" else "未知地點"
@@ -122,6 +122,7 @@ L {level} / CP {cp} {dsp}
     """.strip()
 
     return formatted_text
+
 
 def translate_city_google(city_en):
     """ 使用 Google 翻譯將城市名稱轉換成中文，確保 API 穩定 """
