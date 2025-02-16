@@ -1,69 +1,11 @@
-import os
-import re
-import json
-import requests
-from flask import Flask, request
-from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
-from googletrans import Translator  # 引入 Google 翻譯 API
-from dotenv import load_dotenv
-
-# 加載環境變數
-load_dotenv()
-
-# 讀取環境變數
-LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
-
-# 初始化 Flask
-app = Flask(__name__)
-
-# 初始化 LINE Bot
-line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
-handler = WebhookHandler(LINE_CHANNEL_SECRET)
-
-# 初始化 Google 翻譯
-translator = Translator()
-
-# 讀取寶可夢名稱對應表
-with open("pokemon_data.json", "r", encoding="utf-8") as f:
-    pokemon_data = json.load(f)
-
-@app.route("/", methods=["GET"])
-def home():
-    return "LINE Bot 正在運行..."
-
-@app.route("/callback", methods=["POST"])
-def callback():
-    signature = request.headers["X-Line-Signature"]
-    body = request.get_data(as_text=True)
-
-    try:
-        handler.handle(body, signature)
-    except InvalidSignatureError:
-        return "Invalid signature", 400
-
-    return "OK"
-
-# 處理文字訊息
-@handler.add(MessageEvent, message=TextMessage)
-def handle_message(event):
-    user_message = event.message.text
-
-    # 呼叫資料整理函數
-    formatted_message = format_pokemon_data(user_message)
-
-    # 回應整理後的內容
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text=formatted_message)
-    )
-
 def format_pokemon_data(text):
     # 提取國旗
     flag_match = re.search(r":flag_(\w+):", text)
-    flag = f"🇺🇸" if flag_match else ""
+    flag = f"🇦🇺" if flag_match else ""
+
+    # **檢查是否有 `shiny` 圖示**
+    shiny_match = re.search(r"<a:shiny:\d+>", text)
+    shiny_symbol = "✨" if shiny_match else ""
 
     # 提取寶可夢名稱（英文 & 轉換成中文）
     name_match = re.search(r"\*\*\*(.*?)\*\*\*", text)
@@ -92,13 +34,11 @@ def format_pokemon_data(text):
     size_info = " ".join(size_match) if size_match else ""
 
     # 提取地點名稱
-    location_match = re.search(r"-\s\*?([^*\n]+)\*?\s*-", text)
+    location_match = re.search(r"-\s\*?([\w\s,]+)\*?\s*-", text)
     location_name = location_match.group(1).strip() if location_match else "未知地點"
 
-    print(f"原始地點: {location_name}")  # 🔥 Debug: 檢查是否成功提取地點
-
-    # 提取座標（允許括號內或不帶括號）
-    coords_match = re.search(r"\(?(-?\d+\.\d+),\s*(-?\d+\.\d+)\)?", text)
+    # 提取座標
+    coords_match = re.search(r"(-?\d+\.\d+),\s*(-?\d+\.\d+)", text)
     if coords_match:
         lat = round(float(coords_match.group(1)), 4)  # 經度縮短到 4 位數
         lng = round(float(coords_match.group(2)), 4)  # 緯度縮短到 4 位數
@@ -106,46 +46,24 @@ def format_pokemon_data(text):
     else:
         coords = "未知座標"
 
-    print(f"提取的座標: {coords}")  # 🔥 Debug: 確保座標正確
-
     # 🔹 使用 Google 翻譯 API 自動翻譯城市名稱
-    translated_city = translate_city_google(location_name) if location_name != "未知地點" else "未知地點"
-    
-    print(f"翻譯前: {location_name}，翻譯後: {translated_city}")  # 🔥 Debug: 檢查翻譯結果
+    translated_city = translate_city_google(location_name)
 
-    # 整理輸出格式
-    formatted_text = f"""
-{flag} ✨{name_cn} {name_en} {gender} {iv} {size_info}
-L {level} / CP {cp} {dsp}
-🔧工具人⚙️{translated_city}
-{coords}
-    """.strip()
+    # 🔹 使用 `config.json` 自訂輸出格式
+    formatted_text = output_format.format(
+        flag=flag,
+        shiny_symbol=shiny_symbol,  # **加入異色圖示**
+        name_cn=name_cn,
+        name_en=name_en,
+        gender=gender,
+        iv=iv,
+        size_info=size_info,
+        level=level,
+        cp=cp,
+        dsp=dsp,
+        custom_label=custom_label,
+        translated_city=translated_city,
+        coords=coords
+    )
 
     return formatted_text
-
-
-def translate_city_google(city_en):
-    """ 使用 Google 翻譯將城市名稱轉換成中文，並修正 'Shire Of' 顯示問題 """
-    try:
-        if city_en == "未知地點":
-            return "未知地點"
-
-        # 特殊處理 "Shire Of"，避免錯誤翻譯
-        city_en = city_en.replace("Shire Of", "").strip()
-
-        translated = translator.translate(city_en, src="en", dest="zh-tw")
-        translated_text = translated.text
-
-        # 進一步優化翻譯結果
-        translated_text = translated_text.replace("，", ", ")  # 確保逗號格式
-        translated_text = translated_text.replace("的郡", "郡")  # 修正不自然的翻譯
-
-        print(f"🌍 翻譯前: {city_en}，翻譯後: {translated_text}")  # 🔥 Debug: 檢查翻譯結果
-        return translated_text
-    except Exception as e:
-        print(f"❌ Google 翻譯錯誤: {e}")  # 🔥 Debug: 顯示錯誤訊息
-        return city_en  # 若翻譯失敗，回傳原始英文
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
