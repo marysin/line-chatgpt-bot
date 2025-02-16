@@ -128,11 +128,14 @@ def format_pokemon_data(text, user_id):
     size_match = re.findall(r"\b(WXXL|WXXS|WXL|WXS|HXXL|HXXS|HXL|HXS)\b", text)
     size_info = " ".join(size_match) if size_match else ""
 
-    # 提取地點名稱
-    location_match = re.search(r"-\s\*?([\w\s,]+)\*?\s*-", text)
-    location_name = location_match.group(1).strip() if location_match else "未知地點"
+    # 提取地點名稱（支援 `城市, 國家` 或 `城市`）
+    location_match = re.findall(r"-\s\*?([\w\s,]+)\*?\s*-", text)
+    location_name = location_match[0].strip() if location_match else "未知地點"
 
-    # 提取座標
+    # **嘗試翻譯地點**
+    translated_city = translate_city_google(location_name)
+
+    # **處理座標**
     coords_match = re.search(r"(-?\d+\.\d+),\s*(-?\d+\.\d+)", text)
     if coords_match:
         lat = round(float(coords_match.group(1)), 4)
@@ -141,13 +144,10 @@ def format_pokemon_data(text, user_id):
     else:
         coords = "未知座標"
 
-    # 翻譯地點
-    translated_city = translate_city_google(location_name)
-
     # 🔹 **取得該用戶的 `custom_label`**
     custom_label = user_labels.get(user_id, "🔧工具人⚙️")
 
-    # 組合輸出
+    # **組合輸出**
     formatted_text = f"""
 {flag} {shiny_symbol}{name_cn} {name_en} {gender} {iv} {size_info}
 L {level} / CP {cp} {dsp}
@@ -157,12 +157,26 @@ L {level} / CP {cp} {dsp}
 
     return formatted_text
 
-def translate_city_google(city_en):
+
+def translate_city_google(location):
+    """ 使用 Google 翻譯 API 將城市名稱轉換成中文 """
     try:
-        translated = translator.translate(city_en, src="en", dest="zh-tw")
-        return translated.text
-    except:
-        return city_en
+        # 如果地點包含 `,`，則拆分成 `城市` & `國家`
+        if "," in location:
+            city, country = location.split(",", 1)
+            city = city.strip()
+            country = country.strip()
+
+            # 只翻譯 `城市`，保留 `國家`
+            translated_city = translator.translate(city, src="en", dest="zh-tw").text
+            return f"{translated_city}，{country}"
+        else:
+            # 直接翻譯整個地點名稱
+            return translator.translate(location, src="en", dest="zh-tw").text
+    except Exception as e:
+        print(f"⚠️ 翻譯錯誤: {e}")
+        return location  # 翻譯失敗則返回原始名稱
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
