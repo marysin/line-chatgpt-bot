@@ -138,12 +138,12 @@ def format_pokemon_data(text, user_id):
     if coords_match:
         lat = round(float(coords_match.group(1)), 4)
         lng = round(float(coords_match.group(2)), 4)
-        coords = f"{lat}, {lng}"
+        coords = f"{lat},{lng}"
     else:
         coords = "未知座標"
 
     # 🔹 **取得該用戶的 `custom_label`**
-    custom_label = user_labels.get(user_id, "🔧工具人⚙️")
+    custom_label = user_labels.get(user_id, "未知")
 
     # **組合輸出**
     formatted_text = f"""
