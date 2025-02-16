@@ -70,8 +70,6 @@ def callback():
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    global user_labels
-
     user_id = event.source.user_id
     user_message = event.message.text.strip()
 
@@ -80,7 +78,7 @@ def handle_message(event):
         new_label = user_message.replace("設定名稱", "").strip()
         if new_label:
             user_labels[user_id] = new_label  # **為該用戶設定標籤**
-            save_user_labels(user_labels)
+            save_user_labels(user_labels)  # **立即保存到 JSON 檔案**
             reply_text = f"✅ 你的標籤名稱已更新為：{new_label}"
         else:
             reply_text = "⚠️ 設定失敗，請輸入 `設定名稱 + 你想要的名稱`"
@@ -128,7 +126,7 @@ def format_pokemon_data(text, user_id):
     size_match = re.findall(r"\b(WXXL|WXXS|WXL|WXS|HXXL|HXXS|HXL|HXS)\b", text)
     size_info = " ".join(size_match) if size_match else ""
 
-    # 提取地點名稱（支援 `城市, 國家` 或 `城市`）
+    # 提取地點名稱
     location_match = re.findall(r"-\s\*?([\w\s,]+)\*?\s*-", text)
     location_name = location_match[0].strip() if location_match else "未知地點"
 
@@ -157,13 +155,12 @@ L {level} / CP {cp} {dsp}
 
     return formatted_text
 
-
-def translate_city_google(location):
+def translate_city_google(city_en):
     """ 使用 Google 翻譯 API 將城市名稱轉換成中文 """
     try:
         # 如果地點包含 `,`，則拆分成 `城市` & `國家`
-        if "," in location:
-            city, country = location.split(",", 1)
+        if "," in city_en:
+            city, country = city_en.split(",", 1)
             city = city.strip()
             country = country.strip()
 
@@ -172,11 +169,10 @@ def translate_city_google(location):
             return f"{translated_city}，{country}"
         else:
             # 直接翻譯整個地點名稱
-            return translator.translate(location, src="en", dest="zh-tw").text
+            return translator.translate(city_en, src="en", dest="zh-tw").text
     except Exception as e:
         print(f"⚠️ 翻譯錯誤: {e}")
-        return location  # 翻譯失敗則返回原始名稱
-
+        return city_en  # 翻譯失敗則返回原始名稱
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
