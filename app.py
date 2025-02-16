@@ -69,27 +69,34 @@ def callback():
     return "OK", 200  # 確保 LINE 正確接收 200
 
 @handler.add(MessageEvent, message=TextMessage)
+@handler.add(MessageEvent, message=TextMessage)
+
+
 def handle_message(event):
-    user_id = event.source.user_id
+    user_id = event.source.user_id  # 獲取使用者 ID
     user_message = event.message.text.strip()
+
+    # **重新讀取 `user_labels.json` 以確保即時更新**
+    user_labels = load_user_labels()
 
     # 🔹 **檢查是否是設定名稱指令**
     if user_message.startswith("設定名稱"):
         new_label = user_message.replace("設定名稱", "").strip()
         if new_label:
-            user_labels[user_id] = new_label  # **為該用戶設定標籤**
-            save_user_labels(user_labels)  # **立即保存到 JSON 檔案**
+            user_labels[user_id] = new_label  # **更新使用者標籤**
+            save_user_labels(user_labels)  # **立即儲存**
             reply_text = f"✅ 你的標籤名稱已更新為：{new_label}"
         else:
             reply_text = "⚠️ 設定失敗，請輸入 `設定名稱 + 你想要的名稱`"
     else:
         # 🔹 **格式化寶可夢資訊**
-        reply_text = format_pokemon_data(user_message, user_id)
+        reply_text = format_pokemon_data(user_message, user_id, user_labels)
 
     line_bot_api.reply_message(
         event.reply_token,
         TextSendMessage(text=reply_text)
     )
+
     
 def country_to_flag(country_code):
     """將 `country_code` 轉換成對應國旗 Emoji"""
@@ -100,7 +107,7 @@ def country_to_flag(country_code):
     return "".join(chr(127397 + ord(c)) for c in country_code.upper())
 
 
-def format_pokemon_data(text, user_id):
+def format_pokemon_data(text, user_id, user_labels):
     # **解析國家代碼，獲取對應國旗**
     flag_match = re.search(r":flag_(\w+):", text)
     country_code = flag_match.group(1).lower() if flag_match else "unknown"
@@ -148,19 +155,19 @@ def format_pokemon_data(text, user_id):
     if coords_match:
         lat = round(float(coords_match.group(1)), 4)
         lng = round(float(coords_match.group(2)), 4)
-        coords = f"{lat}, {lng}"
+        coords = f"{lat},{lng}"
     else:
         coords = "未知座標"
 
     # **取得該用戶的 `custom_label`**
-    custom_label = user_labels.get(user_id, "🔧工具人⚙️")
+    custom_label = user_labels.get(user_id, "匿名")  # **確保每次讀取最新標籤**
 
     # **組合輸出**
     formatted_text = f"""
 {flag} {shiny_symbol}{name_cn} {name_en} {gender} {iv} {size_info}
 L {level} / CP {cp} {dsp}
-{custom_label} {translated_city}
-📍 {coords}
+Fr:{custom_label} {translated_city}
+{coords}
 """.strip()
 
     return formatted_text
