@@ -149,8 +149,8 @@ def format_pokemon_data(text, user_id):
     formatted_text = f"""
 {flag} {shiny_symbol}{name_cn} {name_en} {gender} {iv} {size_info}
 L {level} / CP {cp} {dsp}
-{custom_label} {translated_city}
-📍 {coords}
+Fr:{custom_label} {translated_city}
+{coords}
 """.strip()
 
     return formatted_text
