@@ -26,7 +26,7 @@ handler = WebhookHandler(LINE_CHANNEL_SECRET)
 # 初始化 Google 翻譯
 translator = Translator()
 
-# 讀取寶可夢名稱對應表
+# 讀取 `pokemon_data.json`
 try:
     with open("pokemon_data.json", "r", encoding="utf-8") as f:
         pokemon_data = json.load(f)
@@ -34,16 +34,24 @@ except (FileNotFoundError, json.JSONDecodeError):
     print("⚠️ 無法讀取 `pokemon_data.json`，將使用原始寶可夢名稱")
     pokemon_data = {}
 
-# 讀取 `config.json` (允許自訂輸出格式)
-try:
-    with open("config.json", "r", encoding="utf-8") as f:
-        config = json.load(f)
-    output_format = config.get("format", "{flag} {shiny_symbol}{name_cn} {name_en} {gender} {iv} {size_info}\nL {level} / CP {cp} {dsp}\n{custom_label} {translated_city}\n📍 {coords}")
-    custom_label = config.get("custom_label", "🔧工具人⚙️")
-except (FileNotFoundError, json.JSONDecodeError):
-    print("⚠️ 無法讀取 `config.json`，將使用預設格式")
-    output_format = "{flag} {shiny_symbol}{name_cn} {name_en} {gender} {iv} {size_info}\nL {level} / CP {cp} {dsp}\n{custom_label} {translated_city}\n📍 {coords}"
-    custom_label = "🔧工具人⚙️"
+# 讀取 `config.json`
+config_path = "config.json"
+
+def load_config():
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {"format": "{flag} {shiny_symbol}{name_cn} {name_en} {gender} {iv} {size_info}\nL {level} / CP {cp} {dsp}\n{custom_label} {translated_city}\n📍 {coords}",
+                "custom_label": "🔧工具人⚙️"}
+
+def save_config(config):
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=4)
+
+config = load_config()
+output_format = config["format"]
+custom_label = config["custom_label"]
 
 @app.route("/", methods=["GET"])
 def home():
@@ -63,16 +71,31 @@ def callback():
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    user_message = event.message.text
-    formatted_message = format_pokemon_data(user_message)
+    global custom_label
+
+    user_message = event.message.text.strip()
+
+    # 🔹 **檢查是否是設定名稱指令**
+    if user_message.startswith("設定名稱"):
+        new_label = user_message.replace("設定名稱", "").strip()
+        if new_label:
+            config["custom_label"] = new_label
+            save_config(config)
+            custom_label = new_label
+            reply_text = f"✅ 已更新標籤名稱為：{new_label}"
+        else:
+            reply_text = "⚠️ 設定失敗，請輸入 `設定名稱 + 你想要的名稱`"
+    else:
+        # 🔹 **格式化寶可夢資訊**
+        reply_text = format_pokemon_data(user_message)
 
     line_bot_api.reply_message(
         event.reply_token,
-        TextSendMessage(text=formatted_message)
+        TextSendMessage(text=reply_text)
     )
 
 def format_pokemon_data(text):
-    # 提取國旗 (適用於不同國家)
+    # 提取國旗
     flag_match = re.search(r":flag_(\w+):", text)
     flag = f"🇺🇸" if flag_match else ""
 
@@ -134,7 +157,7 @@ def format_pokemon_data(text):
         level=level,
         cp=cp,
         dsp=dsp,
-        custom_label=custom_label,
+        custom_label=custom_label,  # ✅ 使用動態變更的 `custom_label`
         translated_city=translated_city,
         coords=coords
     )

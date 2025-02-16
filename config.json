@@ -1,4 +1,4 @@
 {
-    "format": "{flag} {shiny_symbol}{name_cn} {name_en} {gender} {iv} {size_info}\nL {level} / CP {cp} {dsp}\n{custom_label} {translated_city}\n📍 {coords}",
+    "format": "{flag} {shiny_symbol}{name_cn} {name_en} {gender} {iv} {size_info}\nL {level} / CP {cp} {dsp}\n{custom_label} {translated_city}\n {coords}",
     "custom_label": "🔧工具人⚙️"
 }
