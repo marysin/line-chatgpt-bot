@@ -46,6 +46,7 @@ def load_user_labels():
         return {}
 
 def save_user_labels(user_labels):
+    """將用戶標籤存入 JSON 檔案"""
     with open(USER_LABELS_FILE, "w", encoding="utf-8") as f:
         json.dump(user_labels, f, ensure_ascii=False, indent=4)
 
@@ -69,49 +70,53 @@ def callback():
     return "OK", 200  # 確保 LINE 正確接收 200
 
 @handler.add(MessageEvent, message=TextMessage)
-@handler.add(MessageEvent, message=TextMessage)
-
-
 def handle_message(event):
     user_id = event.source.user_id  # 獲取使用者 ID
     user_message = event.message.text.strip()
 
-    # **重新讀取 `user_labels.json` 以確保即時更新**
+    # 重新讀取最新 `user_labels.json`
     user_labels = load_user_labels()
 
-    # 🔹 **檢查是否是設定名稱指令**
-    if user_message.startswith("設定名稱"):
-        new_label = user_message.replace("設定名稱", "").strip()
-        if new_label:
-            user_labels[user_id] = new_label  # **更新使用者標籤**
-            save_user_labels(user_labels)  # **立即儲存**
-            reply_text = f"✅ 你的標籤名稱已更新為：{new_label}"
+    try:
+        # **設定名稱**
+        if user_message.startswith("設定名稱"):
+            new_label = user_message.replace("設定名稱", "").strip()
+            if new_label:
+                user_labels[user_id] = new_label  # **更新使用者標籤**
+                save_user_labels(user_labels)  # **立即儲存**
+                reply_text = f"✅ 你的標籤名稱已更新為：{new_label}"
+            else:
+                reply_text = "⚠️ 設定失敗，請輸入 `設定名稱 + 你想要的名稱`"
+
+        # **格式化寶可夢資訊**
         else:
-            reply_text = "⚠️ 設定失敗，請輸入 `設定名稱 + 你想要的名稱`"
-    else:
-        # 🔹 **格式化寶可夢資訊**
-        reply_text = format_pokemon_data(user_message, user_id, user_labels)
+            reply_text = format_pokemon_data(user_message, user_id, user_labels)
+
+    except Exception as e:
+        print(f"❌ 錯誤: {e}")  # **伺服器 Log 紀錄**
+        reply_text = "⚠️ 無法解析你的輸入格式，請檢查內容是否正確。"
 
     line_bot_api.reply_message(
         event.reply_token,
         TextSendMessage(text=reply_text)
     )
 
+
     
 def country_to_flag(country_code):
     """將 `country_code` 轉換成對應國旗 Emoji"""
-    if not country_code or country_code == "unknown":
-        return "🏳️"  # 無法識別時使用白旗
-
-    # **ISO 3166-1 轉換國旗**
-    return "".join(chr(127397 + ord(c)) for c in country_code.upper())
+    country_code = country_code.upper()  # 確保大寫
+    flag_offset = 127397
+    if len(country_code) == 2:
+        return "".join(chr(ord(c) + flag_offset) for c in country_code)
+    return "🏳️"  # 找不到時顯示白旗
 
 
 def format_pokemon_data(text, user_id, user_labels):
     # **解析國家代碼，獲取對應國旗**
     flag_match = re.search(r":flag_(\w+):", text)
     country_code = flag_match.group(1).lower() if flag_match else "unknown"
-    flag = country_to_flag(country_code)  # 🔹 轉換國家代碼為國旗
+    flag = country_to_flag(country_code)  # **確保國旗格式正確**
 
     # **檢查是否有 `shiny` 圖示**
     shiny_match = re.search(r"<a:shiny:\d+>", text)
@@ -175,18 +180,17 @@ Fr:{custom_label} {translated_city}
 
 def translate_city_google(city_en):
     """ 使用 Google 翻譯 API 將城市名稱轉換成中文 """
+    if not city_en or city_en.lower() in ["unknown", "未知地點"]:
+        return "未知地點"  # 避免翻譯錯誤
+
     try:
-        # 如果地點包含 `,`，則拆分成 `城市` & `國家`
         if "," in city_en:
             city, country = city_en.split(",", 1)
             city = city.strip()
             country = country.strip()
-
-            # 只翻譯 `城市`，保留 `國家`
             translated_city = translator.translate(city, src="en", dest="zh-tw").text
             return f"{translated_city}，{country}"
         else:
-            # 直接翻譯整個地點名稱
             return translator.translate(city_en, src="en", dest="zh-tw").text
     except Exception as e:
         print(f"⚠️ 翻譯錯誤: {e}")
